@@ -1,0 +1,166 @@
+name: Build APK (TWA / Bubblewrap)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+      ANDROID_SDK_VERSION: '33'
+      # Optionally set these secrets in the repo. If missing, the step uses fallbacks (demo mode).
+      MANIFEST_URL: ${{ secrets.MANIFEST_URL }}
+      APPLICATION_ID: ${{ secrets.APPLICATION_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-cache-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            npm-cache-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Build web app (produce production files)
+        run: |
+          # Adjust to your project's build command. Most PWAs use `npm run build`.
+          npm run build --if-present
+        working-directory: .
+
+      - name: Set up Java (required for Android build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Install apt tools (unzip, wget)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget unzip
+        shell: bash
+
+      - name: Install Android SDK commandline tools & components
+        run: |
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          cd "${ANDROID_SDK_ROOT}"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools/"* "${ANDROID_SDK_ROOT}/cmdline-tools/latest/" || true
+
+          # Persist env for later steps
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> $GITHUB_ENV
+          echo "PATH=${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}" >> $GITHUB_ENV
+
+          yes | sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-${ANDROID_SDK_VERSION}" "build-tools;33.0.2" "cmdline-tools;latest"
+        shell: bash
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/twa-project/**/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-cache-${{ runner.os }}-
+
+      - name: Install Bubblewrap CLI (TWA tooling)
+        run: |
+          npm install -g @bubblewrap/cli
+          bubblewrap --version
+        shell: bash
+
+      - name: Prepare keystore (use repo secrets if provided)
+        id: keystore
+        run: |
+          # If you provide ANDROID_KEYSTORE_BASE64 it will be decoded.
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Decoding provided keystore..."
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > twa.keystore
+            echo "path=twa.keystore" >> $GITHUB_OUTPUT
+            echo "alias=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_OUTPUT
+            echo "ks_pass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_OUTPUT
+            echo "key_pass=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_OUTPUT
+          else
+            echo "No keystore provided — generating a debug keystore (for testing only)."
+            keytool -genkeypair -alias androiddebugkey -keystore twa.keystore -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+            echo "path=twa.keystore" >> $GITHUB_OUTPUT
+            echo "alias=androiddebugkey" >> $GITHUB_OUTPUT
+            echo "ks_pass=android" >> $GITHUB_OUTPUT
+            echo "key_pass=android" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Create TWA project (bubblewrap init)
+        run: |
+          MANIFEST="${MANIFEST_URL:-https://your-site.example/manifest.json}"
+          APPID="${APPLICATION_ID:-com.example.myapp}"
+          rm -rf twa-project || true
+          mkdir -p twa-project
+          cd twa-project
+          # Non-interactive init using your hosted web manifest URL and applicationId
+          npx bubblewrap init --manifest "$MANIFEST" --applicationId "$APPID" --sdkVersion "${ANDROID_SDK_VERSION}" --no-update
+        shell: bash
+
+      - name: (Optional) copy built web files to TWA project (if using local manifest)
+        if: always()
+        run: |
+          # If your manifest points to a local built manifest or you want to include assets,
+          # host the ./dist output or adjust MANIFEST_URL to a public URL.
+          echo "If your manifest is local, replace MANIFEST_URL with a public URL or adapt this step to host the build artifacts."
+        shell: bash
+
+      - name: Build Android app (Gradle) via bubblewrap
+        run: |
+          MANIFEST="${MANIFEST_URL:-https://your-site.example/manifest.json}"
+          cd twa-project
+          npx bubblewrap build \
+            --manifest "$MANIFEST" \
+            --keystorePath="${{ steps.keystore.outputs.path }}" \
+            --keystoreAlias="${{ steps.keystore.outputs.alias }}" \
+            --keystorePassword="${{ steps.keystore.outputs.ks_pass }}" \
+            --keyPassword="${{ steps.keystore.outputs.key_pass }}" \
+            --sdkVersion "${ANDROID_SDK_VERSION}"
+        shell: bash
+
+      - name: Find built APK / AAB and set outputs
+        run: |
+          cd twa-project
+          APK_PATH=$(find . -type f -name '*.apk' | head -n 1 || true)
+          AAB_PATH=$(find . -type f -name '*.aab' | head -n 1 || true)
+          if [ -n "$APK_PATH" ]; then
+            echo "apk=$APK_PATH" >> $GITHUB_OUTPUT
+          elif [ -n "$AAB_PATH" ]; then
+            echo "aab=$AAB_PATH" >> $GITHUB_OUTPUT
+          else
+            echo "No APK/AAB found; listing files for debugging"
+            find . -maxdepth 6 -type f | sed -n '1,200p'
+            exit 1
+          fi
+        shell: bash
+
+      - name: Upload APK/AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: twa-apk
+          path: |
+            twa-project/**/build/outputs/**/*.apk
+            twa-project/**/build/outputs/**/*.aab
