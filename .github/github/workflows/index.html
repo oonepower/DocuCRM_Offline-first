@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2ca97c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="الأقساط">
+  
+  <title>نظام الأقساط والتحصيلات - PWA & IndexedDB</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --main:#2ca97c;
+      --mainDark:#14705e;
+      --accent:#f3bb18;
+      --bg:#f6f8fa;
+      --muted:#6c757d;
+      --danger:#dc3545;
+      --warn:#f0ad4e;
+      --cardShadow: 0 6px 22px rgba(0,0,0,0.08);
+    }
+    body{ background:var(--bg); font-family:'Cairo', Arial, sans-serif; color:#1f2a37; }
+    header{ background:var(--main); color:#fff; padding:14px 0 10px; }
+    .app-title{ font-weight:800; letter-spacing:.4px; }
+    main{ margin-bottom: 80px; }
+
+    .stat-card{ border:none; border-radius:16px; background:#fff; box-shadow:var(--cardShadow); }
+    .stat-icon{ width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; background:var(--main); font-size:20px; }
+    .btn-main{ background:var(--main)!important; border:none!important; color:#fff!important; font-weight:800; border-radius:12px; }
+    .btn-main:hover{ background:var(--mainDark)!important; }
+    .chip{ border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px; }
+    .chip.success{ background:#e7f7f1; color:var(--mainDark); }
+    .chip.danger{ background:#fde8ea; color:var(--danger); }
+    .chip.warn{ background:#fff3dc; color:#9a6b00; }
+    .chip.gray{ background:#eef2f7; color:#3b485a; }
+
+    .client-card{ border-radius:14px; cursor:pointer; transition:.15s; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+    .client-card:hover{ outline:2px solid rgba(44,169,124,0.25); transform:translateY(-1px); }
+    .profile-img{ width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid var(--main); background:#e3efea; }
+
+    .bottom-nav{ position:fixed; right:0; left:0; bottom:0; background:#fff; border-top:1px solid #e6eef5; z-index:1004; }
+    .bottom-nav .nav-link{ text-align:center; font-size:12.5px; font-weight:700; color:#778; padding:10px 0; }
+    .bottom-nav .nav-link.active{ color:var(--main)!important; border-top:3px solid var(--main); }
+
+    .section-title{ border-right:6px solid var(--main); padding-right:10px; margin:10px 0 12px; font-weight:900; color:var(--mainDark); }
+    .table thead th{ white-space:nowrap; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .toast-wrap{ position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:10px; width:min(520px, 92vw); }
+    .toastx{ background:#111827; color:#fff; border-radius:14px; padding:10px 14px; box-shadow:0 14px 30px rgba(0,0,0,.18); display:flex; align-items:flex-start; gap:10px; }
+    .toastx.success{ background: #0f766e; }
+    .toastx.error{ background: #b42318; }
+    .toastx .t-title{ font-weight:900; margin-bottom:2px; }
+    .toastx .t-msg{ font-size:13px; opacity:.95; }
+
+    .modal-header{ border-bottom:0; }
+    .modal-footer{ border-top:0; }
+    .form-label{ font-weight:800; }
+    .help-hint{ font-size:12px; color:var(--muted); }
+
+    .install-row{ border:1px solid #eef2f7; border-radius:14px; padding:10px 12px; background:#fff; }
+    .progressbar{ height:22px; border-radius:10px; background:#e9eef5; overflow:hidden; display:flex; align-items:center; }
+    .progressbar > span{ height:100%; display:flex; align-items:center; justify-content:flex-end; padding-inline:8px; color:#fff; font-weight:900; font-size:12px; background:linear-gradient(90deg, var(--main) 55%, var(--accent) 100%); }
+    .overdue{ outline:2px solid rgba(220,53,69,0.15); background:#fff6f7; }
+    .muted{ color:var(--muted); }
+
+    .grid-more{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; }
+    .more-card{ background:#fff; border-radius:16px; box-shadow:var(--cardShadow); padding:14px; cursor:pointer; transition:.15s; }
+    .more-card:hover{ outline:2px solid rgba(44,169,124,0.25); transform:translateY(-1px); }
+    .more-ico{ width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; }
+    .more-title{ font-weight:900; margin-top:8px; }
+    .more-desc{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+    @media (min-width: 992px){
+      .grid-more{ grid-template-columns: repeat(4, minmax(0,1fr)); }
+    }
+    
+    /* Splash Screen Loader */
+    #appLoader { position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .spinner { width: 50px; height: 50px; border: 5px solid #e3efea; border-top: 5px solid var(--main); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+
+  <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+</head>
+
+<body>
+  <div id="appLoader">
+    <div class="spinner mb-3"></div>
+    <h5 class="fw-bold text-muted">جاري تحميل النظام...</h5>
+  </div>
+
+  <header>
+    <div class="container">
+      <div class="d-flex align-items-center gap-3">
+        <i class="fa-solid fa-coins fa-2x"></i>
+        <div>
+          <div class="app-title h4 mb-0">نظام الأقساط والتحصيلات</div>
+          <div class="small opacity-75">Offline-first PWA • IndexedDB</div>
+        </div>
+        <div class="ms-auto small opacity-75 d-none d-md-block">
+          <span class="mono" id="appVersion"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <main class="container py-3" id="appMain"></main>
+
+  <nav class="navbar bottom-nav navbar-light px-0">
+    <div class="container px-0">
+      <div class="row w-100 g-0">
+        <div class="col-3"><a href="#" class="nav-link active" data-page="dashboard"><i class="fa-solid fa-chart-pie fa-lg"></i><br>لوحة</a></div>
+        <div class="col-3"><a href="#" class="nav-link" data-page="customers"><i class="fa-solid fa-users fa-lg"></i><br>العملاء</a></div>
+        <div class="col-3"><a href="#" class="nav-link" data-page="contracts"><i class="fa-solid fa-file-contract fa-lg"></i><br>العقود</a></div>
+        <div class="col-3"><a href="#" class="nav-link" data-page="more"><i class="fa-solid fa-ellipsis fa-lg"></i><br>المزيد</a></div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="modal fade" id="modalCustomer" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <form class="modal-content" id="customerForm">
+        <div class="modal-header text-white" style="background:var(--main);">
+          <h5 class="modal-title"><i class="fa-solid fa-user-plus"></i> عميل</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <input type="hidden" name="id" />
+          <div class="col-12 col-md-6">
+            <label class="form-label">اسم العميل <span class="text-danger">*</span></label>
+            <input name="name" class="form-control" maxlength="60" required />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">الجوال <span class="text-danger">*</span></label>
+            <input name="phone" class="form-control" maxlength="20" required />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">العنوان</label>
+            <input name="address" class="form-control" maxlength="80" />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select">
+              <option value="active">نشط</option>
+              <option value="paused">متوقف</option>
+              <option value="late">متأخر عن السداد</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">ملاحظات</label>
+            <textarea name="notes" class="form-control" rows="2" maxlength="200"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">إلغاء</button>
+          <button class="btn btn-main" type="submit"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalContract" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <form class="modal-content" id="contractForm">
+        <div class="modal-header text-white" style="background:#0b4f43;">
+          <h5 class="modal-title"><i class="fa-solid fa-file-signature"></i> عقد (مع معاينة الأقساط)</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <input type="hidden" name="id" />
+          <div class="col-12 col-md-6">
+            <label class="form-label">العميل <span class="text-danger">*</span></label>
+            <select name="customerId" class="form-select" required id="contractCustomerSelect"></select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">رقم العقد <span class="text-danger">*</span></label>
+            <input name="contractNo" class="form-control" required maxlength="30" />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">تاريخ العقد <span class="text-danger">*</span></label>
+            <input name="contractDate" type="date" class="form-control" required />
+          </div>
+
+          <div class="col-6 col-md-3">
+            <label class="form-label">العملة <span class="text-danger">*</span></label>
+            <select name="currency" class="form-select" required>
+              <option value="USD">USD</option>
+              <option value="SAR">SAR</option>
+              <option value="YER">YER</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">إجمالي العقد <span class="text-danger">*</span></label>
+            <input name="total" type="number" min="1" step="0.01" class="form-control" required />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">دفعة مقدمة</label>
+            <input name="down" type="number" min="0" step="0.01" class="form-control" value="0" />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">ربح ثابت (مبلغ) <span class="text-danger">*</span></label>
+            <input name="profit" type="number" min="0" step="0.01" class="form-control" value="0" required />
+          </div>
+
+          <div class="col-6 col-md-3">
+            <label class="form-label">عدد الأقساط <span class="text-danger">*</span></label>
+            <input name="count" type="number" min="1" step="1" class="form-control" required />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">أول استحقاق <span class="text-danger">*</span></label>
+            <input name="firstDue" type="date" class="form-control" required />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">ملاحظات</label>
+            <input name="notes" class="form-control" maxlength="120" />
+          </div>
+
+          <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between mt-2">
+              <div class="section-title mb-0">معاينة خطة الأقساط</div>
+              <button class="btn btn-outline-dark btn-sm" type="button" id="btnPreviewSchedule">
+                <i class="fa-solid fa-eye"></i> تحديث المعاينة
+              </button>
+            </div>
+            <div class="table-responsive mt-2">
+              <table class="table table-sm table-bordered bg-white">
+                <thead class="table-light"><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th></tr></thead>
+                <tbody id="schedulePreviewBody"><tr><td colspan="3" class="text-center muted">اضغط "تحديث المعاينة"</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">إلغاء</button>
+          <button class="btn btn-main" type="submit"><i class="fa-solid fa-floppy-disk"></i> حفظ العقد</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalQuickPayment" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <form class="modal-content" id="quickPaymentForm">
+        <div class="modal-header text-white" style="background:#1f2937;">
+          <h5 class="modal-title"><i class="fa-solid fa-money-bill-wave"></i> تسجيل سند قبض</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label">اختيار العميل <span class="text-danger">*</span></label>
+            <select class="form-select" name="customerId" required id="payCustomerSelect"></select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">اختيار العقد (اختياري)</label>
+            <select class="form-select" name="contractId" id="payContractSelect">
+              <option value="">— سند عام للعميل —</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">المبلغ <span class="text-danger">*</span></label>
+            <input class="form-control" type="number" min="0.01" step="0.01" name="amount" required />
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">التاريخ <span class="text-danger">*</span></label>
+            <input class="form-control" type="date" name="date" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label">ملاحظة</label>
+            <input class="form-control" name="note" maxlength="120" />
+          </div>
+
+          <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="section-title mb-0">توزيع السند</div>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-dark btn-sm" id="btnAutoAllocate"><i class="fa-solid fa-wand-magic-sparkles"></i> توزيع تلقائي</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearAlloc"><i class="fa-solid fa-eraser"></i> تفريغ</button>
+              </div>
+            </div>
+            <div class="table-responsive mt-2">
+              <table class="table table-sm table-bordered bg-white">
+                <thead class="table-light"><tr><th>القسط</th><th>الاستحقاق</th><th>المتبقي</th><th style="min-width:140px;">المخصص من السند</th></tr></thead>
+                <tbody id="allocTableBody"><tr><td colspan="4" class="text-center muted">اختر عميلاً/عقداً أولاً</td></tr></tbody>
+                <tfoot><tr><th colspan="3" class="text-end">غير مخصص (رصيد دائن)</th><th class="mono" id="unallocatedCell">0</th></tr></tfoot>
+              </table>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <span class="chip gray">إجمالي السند: <span class="mono" id="receiptTotalChip">0</span></span>
+              <span class="chip success">مخصص: <span class="mono" id="allocatedChip">0</span></span>
+              <span class="chip warn">غير مخصص: <span class="mono" id="unallocatedChip">0</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">إلغاء</button>
+          <button class="btn btn-main" type="submit"><i class="fa-solid fa-circle-check"></i> تأكيد إنشاء السند</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalBackup" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <form class="modal-content" id="backupForm">
+        <div class="modal-header text-white" style="background:#0f766e;">
+          <h5 class="modal-title"><i class="fa-solid fa-shield-halved"></i> النسخ الاحتياطي والاستعادة</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">الاستعادة تتم داخل عملية آمنة بفضل معمارية IndexedDB.</div>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-main" id="btnExportJson"><i class="fa-solid fa-file-export"></i> تصدير JSON</button>
+            <label class="btn btn-outline-dark mb-0">
+              <i class="fa-solid fa-file-import"></i> استيراد JSON
+              <input type="file" accept=".json" id="importFile" hidden />
+            </label>
+            <button type="button" class="btn btn-outline-danger" id="btnFactoryReset"><i class="fa-solid fa-triangle-exclamation"></i> تصفير البيانات</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">إغلاق</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+  const APP_VERSION = "PWA IndexedDB v3.0";
+  document.getElementById("appVersion").textContent = APP_VERSION;
+
+  const dbx = new Dexie("InstallmentsOfflineDB");
+  dbx.version(1).stores({
+    settings: 'id',
+    customers: 'id, status, archivedAt',
+    contracts: 'id, customerId, contractNo, status, archivedAt',
+    installments: 'id, contractId, dueDate, status',
+    receipts: 'id, customerId, contractId, date',
+    allocations: 'id, receiptId, installmentId',
+    audit: 'id, at, action'
+  });
+
+  const DEFAULT_SETTINGS = { id: 1, defaultCurrency: "USD", timezone: "Asia/Aden", receiptSeq: 1000, contractSeq: 2000 };
+
+  async function getDB(){
+    return {
+      settings: await dbx.settings.get(1) || DEFAULT_SETTINGS,
+      customers: await dbx.customers.toArray(),
+      contracts: await dbx.contracts.toArray(),
+      installments: await dbx.installments.toArray(),
+      receipts: await dbx.receipts.toArray(),
+      allocations: await dbx.allocations.toArray(),
+      audit: await dbx.audit.reverse().sortBy('at')
+    };
+  }
+
+  async function runMigration() {
+    const LSKEY = "collections_offline_v2_db";
+    const oldDataRaw = localStorage.getItem(LSKEY);
+    if (oldDataRaw) {
+      try {
+        const oldDb = JSON.parse(oldDataRaw);
+        await dbx.transaction('rw', dbx.settings, dbx.customers, dbx.contracts, dbx.installments, dbx.receipts, dbx.allocations, dbx.audit, async () => {
+          await dbx.settings.put({ id: 1, ...oldDb.settings });
+          if(oldDb.customers?.length) await dbx.customers.bulkPut(oldDb.customers);
+          if(oldDb.contracts?.length) await dbx.contracts.bulkPut(oldDb.contracts);
+          if(oldDb.installments?.length) await dbx.installments.bulkPut(oldDb.installments);
+          if(oldDb.receipts?.length) await dbx.receipts.bulkPut(oldDb.receipts);
+          if(oldDb.allocations?.length) await dbx.allocations.bulkPut(oldDb.allocations);
+          if(oldDb.audit?.length) await dbx.audit.bulkPut(oldDb.audit);
+        });
+        localStorage.removeItem(LSKEY);
+        console.log("Migration to IndexedDB successful.");
+      } catch (e) { console.error("Migration failed:", e); }
+    } else {
+      const count = await dbx.settings.count();
+      if(count === 0) await dbx.settings.put(DEFAULT_SETTINGS);
+    }
+  }
+
+  function uid(prefix="id_"){ return prefix + Date.now() + "_" + Math.floor(Math.random()*900000); }
+  function toCents(n){ const v = Number(n); return isFinite(v) ? Math.round(v * 100) : 0; }
+  function fromCents(c){ return (Number(c||0)/100); }
+  function centsToInput(cents){ return (Number(cents||0)/100).toFixed(2); }
+  function readMoneyInputToCents(val){ const n = Number(val); return isFinite(n) ? Math.round(n*100) : 0; }
+  function moneyFmt(cents, currency="USD"){ return fromCents(cents).toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + currency; }
+  function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+  function addMonths(dateStr, months){ const d = new Date(dateStr + "T00:00:00"); d.setMonth(d.getMonth() + months); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+
+  function escapeHtml(s){ return String(s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;"); }
+  
+  function toast(title, msg, type="success"){
+    const wrap = document.getElementById("toastWrap");
+    const el = document.createElement("div");
+    el.className = "toastx " + (type==="error" ? "error" : "success");
+    el.innerHTML = `<div style="margin-top:2px;"><i class="fa-solid ${type==="error" ? "fa-circle-xmark" : "fa-circle-check"}"></i></div><div><div class="t-title">${escapeHtml(title)}</div><div class="t-msg">${escapeHtml(msg||"")}</div></div>`;
+    wrap.appendChild(el);
+    setTimeout(()=>{ el.style.opacity="0"; el.style.transform="translateY(-6px)"; el.style.transition="all .2s"; }, 1800);
+    setTimeout(()=>{ el.remove(); }, 2100);
+  }
+
+  async function logAuditAsync(action, entityType, entityId, payload){
+    await dbx.audit.put({ id: uid("au_"), at: new Date().toISOString(), action, entityType, entityId, payload: payload || null });
+  }
+
+  function getInstallmentStatus(paid, amount){
+    if(paid <= 0) return "unpaid";
+    if(paid >= amount) return "paid";
+    return "partial";
+  }
+
+  function generateSchedule(totalToSplitCents, count, firstDue){
+    if(count <= 0) throw new Error("عدد أقساط غير صحيح");
+    const base = Math.floor(totalToSplitCents / count);
+    const remainder = totalToSplitCents - base * count;
+    const rows = [];
+    for(let i=1;i<=count;i++){
+      const amt = (i===count) ? (base + remainder) : base;
+      rows.push({ seq:i, dueDate:addMonths(firstDue, i-1), amount:amt });
+    }
+    return rows;
+  }
+
+  function contractTotals(contract){
+    const financed = Math.max(0, contract.total - contract.down);
+    const installmentsTotal = financed + contract.profit;
+    return { financed, installmentsTotal };
+  }
+
+  function computeCustomerBalance(db, customerId, currency){
+    const custContracts = db.contracts.filter(c => c.customerId===customerId && c.currency===currency && c.status!=="archived");
+    const contractIds = new Set(custContracts.map(c=>c.id));
+    const inst = db.installments.filter(i => contractIds.has(i.contractId));
+    const ar = inst.reduce((s,i)=> s + Math.max(0, i.amount - i.paid), 0);
+
+    const receipts = db.receipts.filter(r => r.customerId===customerId && r.currency===currency && r.status==="posted");
+    const receiptIds = new Set(receipts.map(r=>r.id));
+    const credit = db.allocations.filter(a => receiptIds.has(a.receiptId) && !a.installmentId).reduce((s,a)=> s + a.amount, 0);
+
+    return { arRemaining: ar, creditBalance: credit, net: ar - credit };
+  }
+
+  function autoAllocate(amountCents, installments){
+    let remaining = amountCents;
+    const sorted = [...installments].filter(i=>i.remaining>0).sort((a,b)=> a.dueDate.localeCompare(b.dueDate) || a.seq-b.seq);
+    const alloc = [];
+    for(const inst of sorted){
+      if(remaining<=0) break;
+      const pay = Math.min(inst.remaining, remaining);
+      alloc.push({ installmentId: inst.id, amount: pay });
+      remaining -= pay;
+    }
+    return { allocations: alloc, unallocated: remaining };
+  }
+
+  const appMain = document.getElementById("appMain");
+
+  function setActiveTab(key){
+    document.querySelectorAll(".bottom-nav .nav-link").forEach(a=>a.classList.remove("active"));
+    const el = document.querySelector(`.bottom-nav .nav-link[data-page="${key}"]`);
+    el && el.classList.add("active");
+  }
+
+  document.querySelectorAll(".bottom-nav .nav-link").forEach(btn=>{
+    btn.addEventListener("click", async (e)=>{
+      e.preventDefault();
+      const pg = btn.getAttribute("data-page");
+      await navigate(pg);
+    });
+  });
+
+  async function navigate(page, params){
+    if(page==="dashboard"){ setActiveTab("dashboard"); await renderDashboard(); return; }
+    if(page==="customers"){ setActiveTab("customers"); await renderCustomers(); return; }
+    if(page==="contracts"){ setActiveTab("contracts"); await renderContracts(); return; }
+    if(page==="more"){ setActiveTab("more"); await renderMore(); return; }
+    if(page==="customerDetails"){ await renderCustomerDetails(params.customerId); return; }
+    if(page==="contractDetails"){ await renderContractDetails(params.contractId); return; }
+  }
+
+  async function renderDashboard(){
+    const db = await getDB();
+    const today = todayISO();
+
+    const activeCustomers = db.customers.filter(c => !c.archivedAt).length;
+    const activeContracts = db.contracts.filter(c => c.status==="active" && !c.archivedAt).length;
+
+    const arrears = db.installments.filter(i => i.dueDate < today && i.status!=="paid");
+    const arrearsByCurrency = {};
+    for(const inst of arrears){
+      const ctr = db.contracts.find(c=>c.id===inst.contractId);
+      if(!ctr) continue;
+      const cur = ctr.currency;
+      const remain = Math.max(0, inst.amount - inst.paid);
+      arrearsByCurrency[cur] = (arrearsByCurrency[cur] || 0) + remain;
+    }
+
+    const monthPrefix = today.slice(0,7);
+    const daily = {};
+    const monthly = {};
+    db.receipts.filter(r=>r.status==="posted").forEach(r=>{
+      if(r.date===today) daily[r.currency] = (daily[r.currency]||0) + r.amount;
+      if(r.date.startsWith(monthPrefix)) monthly[r.currency] = (monthly[r.currency]||0) + r.amount;
+    });
+
+    const currencies = ["USD","SAR","YER"];
+    const remainingByCurrency = {};
+    for(const cur of currencies){
+      const inst = db.installments.filter(i=>{
+        const ctr = db.contracts.find(c=>c.id===i.contractId);
+        return ctr && ctr.currency===cur && ctr.status!=="archived";
+      });
+      const ar = inst.reduce((s,i)=> s + Math.max(0, i.amount - i.paid), 0);
+      const receipts = db.receipts.filter(r=>r.currency===cur && r.status==="posted");
+      const receiptIds = new Set(receipts.map(r=>r.id));
+      const credit = db.allocations.filter(a=>receiptIds.has(a.receiptId) && !a.installmentId).reduce((s,a)=> s + a.amount, 0);
+      remainingByCurrency[cur] = { ar, credit, net: ar - credit };
+    }
+
+    let arrearsHtml = Object.keys(arrearsByCurrency).length
+      ? Object.entries(arrearsByCurrency).map(([cur,amt])=>`<div class="chip danger">متأخرات: <span class="mono">${moneyFmt(amt,cur)}</span></div>`).join(" ")
+      : `<div class="chip success">لا يوجد متأخرات</div>`;
+
+    let remHtml = currencies.map(cur=>{
+      const x = remainingByCurrency[cur];
+      return `<tr><td class="mono">${cur}</td><td class="mono">${moneyFmt(x.ar,cur)}</td><td class="mono">${moneyFmt(x.credit,cur)}</td><td class="mono fw-bold">${moneyFmt(x.net,cur)}</td></tr>`;
+    }).join("");
+
+    appMain.innerHTML = `
+      <div class="row g-3">
+        <div class="col-6 col-md-3"><div class="stat-card p-3 d-flex align-items-center gap-3"><div class="stat-icon"><i class="fa-solid fa-users"></i></div><div><div class="fw-bold fs-5">${activeCustomers}</div><div class="small muted">عملاء نشطون</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card p-3 d-flex align-items-center gap-3"><div class="stat-icon" style="background:#0b4f43;"><i class="fa-solid fa-file-contract"></i></div><div><div class="fw-bold fs-5">${activeContracts}</div><div class="small muted">عقود نشطة</div></div></div></div>
+        <div class="col-12 col-md-6"><div class="stat-card p-3"><div class="fw-bold mb-2">ملخص المتأخرات</div><div class="d-flex flex-wrap gap-2">${arrearsHtml}</div></div></div>
+        <div class="col-12 col-lg-6"><div class="stat-card p-3"><div class="fw-bold mb-2">التحصيل اليومي</div><div class="d-flex flex-wrap gap-2">${Object.keys(daily).length ? Object.entries(daily).map(([cur,amt])=>`<span class="chip success"><span class="mono">${moneyFmt(amt,cur)}</span></span>`).join("") : `<span class="chip gray">لا يوجد تحصيل اليوم</span>`}</div></div></div>
+        <div class="col-12 col-lg-6"><div class="stat-card p-3"><div class="fw-bold mb-2">التحصيل الشهري</div><div class="d-flex flex-wrap gap-2">${Object.keys(monthly).length ? Object.entries(monthly).map(([cur,amt])=>`<span class="chip success"><span class="mono">${moneyFmt(amt,cur)}</span></span>`).join("") : `<span class="chip gray">لا يوجد تحصيل هذا الشهر</span>`}</div></div></div>
+        <div class="col-12"><div class="stat-card p-3"><div class="d-flex align-items-center justify-content-between"><div class="fw-bold">الأرصدة حسب العملة (AR - رصيد دائن)</div><button class="btn btn-main btn-sm" id="btnQuickPayTop"><i class="fa-solid fa-plus"></i> سند قبض</button></div><div class="table-responsive mt-2"><table class="table table-sm table-bordered bg-white"><thead class="table-light"><tr><th>العملة</th><th>المتبقي (AR)</th><th>رصيد دائن</th><th>الصافي</th></tr></thead><tbody>${remHtml}</tbody></table></div></div></div>
+      </div>
+    `;
+    document.getElementById("btnQuickPayTop").onclick = async ()=> await openQuickPaymentModal();
+  }
+
+  async function renderCustomers(){
+    const db = await getDB();
+    appMain.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between mb-2"><div class="section-title mb-0">العملاء</div><button class="btn btn-main" id="btnAddCustomer"><i class="fa-solid fa-user-plus"></i> إضافة</button></div>
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-6"><input id="customerSearch" class="form-control" placeholder="بحث بالاسم أو الجوال..." /></div>
+        <div class="col-12 col-md-3"><select id="customerStatusFilter" class="form-select"><option value="">كل الحالات</option><option value="active">نشط</option><option value="paused">متوقف</option><option value="late">متأخر</option></select></div>
+        <div class="col-12 col-md-3"><select id="customerArchivedFilter" class="form-select"><option value="no">غير مؤرشف</option><option value="yes">مؤرشف</option><option value="all">الكل</option></select></div>
+      </div>
+      <div class="row" id="customersGrid"></div>
+    `;
+
+    function draw(){
+      const q = (document.getElementById("customerSearch").value||"").trim();
+      const st = document.getElementById("customerStatusFilter").value;
+      const arch = document.getElementById("customerArchivedFilter").value;
+
+      const items = db.customers.filter(c=>{
+        if(arch==="no" && c.archivedAt) return false;
+        if(arch==="yes" && !c.archivedAt) return false;
+        if(st && c.status!==st) return false;
+        if(q) return (c.name||"").includes(q) || (c.phone||"").includes(q);
+        return true;
+      });
+
+      const grid = document.getElementById("customersGrid");
+      if(!items.length){ grid.innerHTML = `<div class="col-12 text-center muted py-5"><i class="fa-solid fa-users fa-2x"></i><div class="mt-2">لا يوجد عملاء</div></div>`; return; }
+
+      grid.innerHTML = items.map(c=>{
+        return `
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <div class="card client-card p-3" data-id="${c.id}">
+              <div class="d-flex gap-3 align-items-center">
+                <img class="profile-img" src="https://randomuser.me/api/portraits/lego/${(Math.abs((c.id||'').split('').reduce((a,ch)=>a+ch.charCodeAt(0),0))%10)}.jpg" alt="">
+                <div class="flex-grow-1">
+                  <div class="d-flex align-items-start justify-content-between">
+                    <div><div class="fw-bold">${escapeHtml(c.name)}</div><div class="small muted"><i class="fa-solid fa-phone"></i> ${escapeHtml(c.phone||"-")}</div></div>
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-outline-dark" data-act="edit"><i class="fa-solid fa-pen"></i></button>
+                      <button class="btn btn-sm btn-outline-danger" data-act="archive"><i class="fa-solid fa-box-archive"></i></button>
+                    </div>
+                  </div>
+                  <div class="mt-2">
+                    ${c.archivedAt ? `<span class="chip gray"><i class="fa-solid fa-box-archive"></i> مؤرشف</span>` : `<span class="chip success">نشط</span>`}
+                    ${c.status==="late" ? `<span class="chip danger">متأخر</span>` : (c.status==="paused" ? `<span class="chip warn">متوقف</span>` : ``)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      grid.querySelectorAll(".client-card").forEach(card=>{
+        const id = card.getAttribute("data-id");
+        card.addEventListener("click", async (e)=>{
+          const actBtn = e.target.closest("button");
+          if(actBtn){
+            const act = actBtn.getAttribute("data-act");
+            if(act==="edit"){ await openCustomerModal(id); }
+            if(act==="archive"){ await toggleArchiveCustomer(id); }
+            return;
+          }
+          await navigate("customerDetails", { customerId: id });
+        });
+      });
+    }
+
+    document.getElementById("btnAddCustomer").onclick = async ()=> await openCustomerModal(null);
+    document.getElementById("customerSearch").oninput = draw;
+    document.getElementById("customerStatusFilter").onchange = draw;
+    document.getElementById("customerArchivedFilter").onchange = draw;
+    draw();
+  }
+
+  async function renderCustomerDetails(customerId){
+    const db = await getDB();
+    const c = db.customers.find(x=>x.id===customerId);
+    if(!c){ toast("خطأ","العميل غير موجود","error"); await renderCustomers(); return; }
+
+    const contracts = db.contracts.filter(k=>k.customerId===customerId && !k.archivedAt);
+    const currencies = [...new Set(contracts.map(k=>k.currency))];
+
+    const balancesHtml = currencies.length ? currencies.map(cur=>{
+      const b = computeCustomerBalance(db, customerId, cur);
+      return `<tr><td class="mono">${cur}</td><td class="mono">${moneyFmt(b.arRemaining,cur)}</td><td class="mono">${moneyFmt(b.creditBalance,cur)}</td><td class="mono fw-bold">${moneyFmt(b.net,cur)}</td></tr>`;
+    }).join("") : `<tr><td colspan="4" class="text-center muted">لا يوجد عقود</td></tr>`;
+
+    appMain.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div><div class="section-title mb-1">${escapeHtml(c.name)}</div><div class="small muted"><i class="fa-solid fa-phone"></i> ${escapeHtml(c.phone||"-")}</div></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-dark" id="btnEditCust"><i class="fa-solid fa-pen"></i> تعديل</button>
+          <button class="btn btn-main" id="btnAddContract"><i class="fa-solid fa-file-circle-plus"></i> عقد جديد</button>
+          <button class="btn btn-dark" id="btnQuickPay"><i class="fa-solid fa-money-bill-wave"></i> سند قبض</button>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-lg-4"><div class="stat-card p-3"><div class="fw-bold mb-2">الرصيد</div><div class="table-responsive"><table class="table table-sm table-bordered bg-white mb-0"><thead class="table-light"><tr><th>العملة</th><th>AR</th><th>دائن</th><th>الصافي</th></tr></thead><tbody>${balancesHtml}</tbody></table></div></div></div>
+        <div class="col-12 col-lg-8"><div class="stat-card p-3"><div class="d-flex align-items-center justify-content-between"><div class="fw-bold">عقود العميل</div><span class="chip gray">عدد: <span class="mono">${contracts.length}</span></span></div>
+          <div class="table-responsive mt-2"><table class="table table-sm table-bordered bg-white"><thead class="table-light"><tr><th>رقم العقد</th><th>التاريخ</th><th>العملة</th><th>الممول</th><th>الربح</th><th>مجموع الأقساط</th><th>الحالة</th></tr></thead><tbody>
+          ${contracts.length ? contracts.map(k=>`<tr data-id="${k.id}" class="contract-row" style="cursor:pointer;"><td class="mono">${escapeHtml(k.contractNo)}</td><td class="mono">${escapeHtml(k.contractDate)}</td><td class="mono">${escapeHtml(k.currency)}</td><td class="mono">${moneyFmt(k.financed,k.currency)}</td><td class="mono">${moneyFmt(k.profit,k.currency)}</td><td class="mono fw-bold">${moneyFmt(k.installmentsTotal,k.currency)}</td><td>${k.status==="active" ? `<span class="chip success">نشط</span>` : `<span class="chip gray">${escapeHtml(k.status)}</span>`}</td></tr>`).join("") : `<tr><td colspan="7" class="text-center muted">لا توجد عقود</td></tr>`}
+          </tbody></table></div></div></div>
+        <div class="col-12"><div class="stat-card p-3"><div class="fw-bold mb-2">آخر سندات قبض</div><div class="table-responsive"><table class="table table-sm table-bordered bg-white mb-0"><thead class="table-light"><tr><th>#</th><th>التاريخ</th><th>العملة</th><th>المبلغ</th><th>حالة</th></tr></thead><tbody>
+          ${db.receipts.filter(r=>r.customerId===customerId).slice(0,10).map(r=>`<tr><td class="mono">${escapeHtml(r.receiptNo)}</td><td class="mono">${escapeHtml(r.date)}</td><td class="mono">${escapeHtml(r.currency)}</td><td class="mono">${moneyFmt(r.amount,r.currency)}</td><td>${r.status==="posted" ? `<span class="chip success">مُرحّل</span>` : `<span class="chip gray">ملغي</span>`}</td></tr>`).join("") || `<tr><td colspan="5" class="text-center muted">لا يوجد سندات</td></tr>`}
+        </tbody></table></div></div></div>
+      </div>
+    `;
+
+    document.getElementById("btnEditCust").onclick = async ()=> await openCustomerModal(customerId);
+    document.getElementById("btnAddContract").onclick = async ()=> await openContractModal(null, customerId);
+    document.getElementById("btnQuickPay").onclick = async ()=> await openQuickPaymentModal(customerId);
+    document.querySelectorAll(".contract-row").forEach(tr=>{ tr.onclick = async ()=> await navigate("contractDetails", { contractId: tr.getAttribute("data-id") }); });
+  }
+
+  async function renderContracts(){
+    const db = await getDB();
+    appMain.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between mb-2"><div class="section-title mb-0">العقود</div><button class="btn btn-main" id="btnAddContract"><i class="fa-solid fa-file-circle-plus"></i> عقد جديد</button></div>
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-5"><input id="contractSearch" class="form-control" placeholder="بحث برقم العقد..." /></div>
+        <div class="col-6 col-md-3"><select id="contractCurrency" class="form-select"><option value="">كل العملات</option><option value="USD">USD</option><option value="SAR">SAR</option><option value="YER">YER</option></select></div>
+        <div class="col-6 col-md-4"><select id="contractStatus" class="form-select"><option value="">كل الحالات</option><option value="active">نشط</option><option value="closed">مغلق</option><option value="archived">مؤرشف</option></select></div>
+      </div>
+      <div class="table-responsive"><table class="table table-sm table-bordered bg-white"><thead class="table-light"><tr><th>رقم العقد</th><th>العميل</th><th>التاريخ</th><th>العملة</th><th>الممول</th><th>الربح</th><th>مجموع الأقساط</th><th>الحالة</th></tr></thead><tbody id="contractsBody"></tbody></table></div>
+    `;
+
+    function draw(){
+      const q = (document.getElementById("contractSearch").value||"").trim();
+      const cur = document.getElementById("contractCurrency").value;
+      const st = document.getElementById("contractStatus").value;
+
+      const items = db.contracts.filter(k=>{
+        if(q && !(k.contractNo||"").includes(q)) return false;
+        if(cur && k.currency!==cur) return false;
+        if(st && k.status!==st) return false;
+        return true;
+      });
+
+      const body = document.getElementById("contractsBody");
+      if(!items.length){ body.innerHTML = `<tr><td colspan="8" class="text-center muted">لا يوجد عقود</td></tr>`; return; }
+
+      body.innerHTML = items.map(k=>{
+        const cust = db.customers.find(c=>c.id===k.customerId);
+        return `<tr style="cursor:pointer;" data-id="${k.id}"><td class="mono">${escapeHtml(k.contractNo)}</td><td>${escapeHtml(cust ? cust.name : "-")}</td><td class="mono">${escapeHtml(k.contractDate)}</td><td class="mono">${escapeHtml(k.currency)}</td><td class="mono">${moneyFmt(k.financed,k.currency)}</td><td class="mono">${moneyFmt(k.profit,k.currency)}</td><td class="mono fw-bold">${moneyFmt(k.installmentsTotal,k.currency)}</td><td>${k.status==="active" ? `<span class="chip success">نشط</span>` : `<span class="chip gray">${escapeHtml(k.status)}</span>`}</td></tr>`;
+      }).join("");
+
+      body.querySelectorAll("tr").forEach(tr=>{ tr.onclick = async ()=> await navigate("contractDetails", { contractId: tr.getAttribute("data-id") }); });
+    }
+
+    document.getElementById("btnAddContract").onclick = async ()=> await openContractModal(null, null);
+    document.getElementById("contractSearch").oninput = draw;
+    document.getElementById("contractCurrency").onchange = draw;
+    document.getElementById("contractStatus").onchange = draw;
+    draw();
+  }
+
+  async function renderContractDetails(contractId){
+    const db = await getDB();
+    const k = db.contracts.find(x=>x.id===contractId);
+    if(!k){ toast("خطأ","العقد غير موجود","error"); await renderContracts(); return; }
+    const cust = db.customers.find(c=>c.id===k.customerId);
+    const inst = db.installments.filter(i=>i.contractId===contractId).sort((a,b)=>a.seq-b.seq);
+    const paidTotal = inst.reduce((s,i)=> s + i.paid, 0);
+    const total = inst.reduce((s,i)=> s + i.amount, 0);
+    const remain = Math.max(0, total - paidTotal);
+
+    appMain.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div><div class="section-title mb-1">عقد: <span class="mono">${escapeHtml(k.contractNo)}</span></div><div class="small muted">العميل: ${escapeHtml(cust?cust.name:"-")} • العملة: <span class="mono">${escapeHtml(k.currency)}</span></div></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-main" id="btnQuickPay"><i class="fa-solid fa-money-bill-wave"></i> سند قبض</button>
+          <button class="btn btn-outline-dark" id="btnEditContract"><i class="fa-solid fa-pen"></i> التعديل</button>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-lg-4"><div class="stat-card p-3"><div class="fw-bold mb-2">ملخص</div><div class="d-flex flex-column gap-1"><div><span class="fw-bold">إجمالي العقد:</span> <span class="mono">${moneyFmt(k.total,k.currency)}</span></div><div><span class="fw-bold">مقدمة:</span> <span class="mono">${moneyFmt(k.down,k.currency)}</span></div><div><span class="fw-bold">ممـول:</span> <span class="mono">${moneyFmt(k.financed,k.currency)}</span></div><div><span class="fw-bold">ربح ثابت:</span> <span class="mono">${moneyFmt(k.profit,k.currency)}</span></div><div><span class="fw-bold">مجموع الأقساط:</span> <span class="mono fw-bold">${moneyFmt(k.installmentsTotal,k.currency)}</span></div><hr><div><span class="fw-bold text-success">مدفوع:</span> <span class="mono">${moneyFmt(paidTotal,k.currency)}</span></div><div><span class="fw-bold text-danger">متبقٍ:</span> <span class="mono">${moneyFmt(remain,k.currency)}</span></div></div></div></div>
+        <div class="col-12 col-lg-8"><div class="stat-card p-3"><div class="d-flex align-items-center justify-content-between"><div class="fw-bold mb-2">الأقساط (قابلة للتعديل)</div><div class="d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" id="btnBalanceLast"><i class="fa-solid fa-scale-balanced"></i> توازن القسط الأخير</button><button class="btn btn-main btn-sm" id="btnSaveInstallments"><i class="fa-solid fa-floppy-disk"></i> حفظ</button></div></div>
+          <div class="table-responsive"><table class="table table-sm table-bordered bg-white"><thead class="table-light"><tr><th>#</th><th>تاريخ الاستحقاق</th><th>مبلغ القسط</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody id="instEditBody"></tbody><tfoot><tr><th colspan="2" class="text-end">المجموع</th><th class="mono" id="instSumCell">0</th><th colspan="3"></th></tr></tfoot></table></div></div></div>
+      </div>
+    `;
+
+    document.getElementById("btnQuickPay").onclick = async ()=> await openQuickPaymentModal(k.customerId, contractId);
+    document.getElementById("btnEditContract").onclick = async ()=> await openContractModal(contractId, null);
+
+    function drawEditableInstallments(){
+      const body = document.getElementById("instEditBody");
+      body.innerHTML = inst.map(i=>{
+        const rem2 = Math.max(0, i.amount - i.paid);
+        const statusLabel = i.status==="paid" ? "مسدد" : (i.status==="partial" ? "جزئي" : "غير مسدد");
+        const statusClass = i.status==="paid" ? "success" : (i.status==="partial" ? "warn" : "gray");
+        return `<tr data-id="${i.id}"><td class="mono">${i.seq}</td><td><input type="date" class="form-control form-control-sm inst-due" value="${escapeHtml(i.dueDate)}" /></td><td><input type="number" min="0" step="0.01" class="form-control form-control-sm inst-amt" value="${centsToInput(i.amount)}" /></td><td class="mono text-success">${moneyFmt(i.paid, k.currency)}</td><td class="mono text-danger">${moneyFmt(rem2, k.currency)}</td><td><span class="chip ${statusClass}">${statusLabel}</span></td></tr>`;
+      }).join("");
+
+      const sum = inst.reduce((s,i)=> s + Number(i.amount||0), 0);
+      document.getElementById("instSumCell").textContent = moneyFmt(sum, k.currency);
+
+      body.querySelectorAll(".inst-amt").forEach(inp=>{
+        inp.addEventListener("input", ()=>{
+          let s = 0; document.querySelectorAll("#instEditBody tr").forEach(tr=>{ s += readMoneyInputToCents(tr.querySelector(".inst-amt").value); });
+          document.getElementById("instSumCell").textContent = moneyFmt(s, k.currency);
+        });
+      });
+    }
+    drawEditableInstallments();
+
+    document.getElementById("btnBalanceLast").onclick = ()=>{
+      const targetTotal = k.installmentsTotal;
+      const rows = Array.from(document.querySelectorAll("#instEditBody tr"));
+      if(rows.length<1) return;
+      let sumExceptLast = 0;
+      for(let idx=0; idx<rows.length-1; idx++){ sumExceptLast += readMoneyInputToCents(rows[idx].querySelector(".inst-amt").value); }
+      const lastRow = rows[rows.length-1];
+      const lastId = lastRow.getAttribute("data-id");
+      const lastInst = inst.find(i=>i.id===lastId);
+      const minLast = lastInst ? lastInst.paid : 0;
+      let newLast = targetTotal - sumExceptLast;
+      if(newLast < minLast){ toast("تحقق","لا يمكن توازن المجموع لأن آخر قسط سيصبح أقل من المدفوع عليه","error"); return; }
+      lastRow.querySelector(".inst-amt").value = centsToInput(newLast);
+      document.getElementById("instSumCell").textContent = moneyFmt(targetTotal, k.currency);
+      toast("تم","تم تحميل الفرق على آخر قسط","success");
+    };
+
+    document.getElementById("btnSaveInstallments").onclick = async ()=>{
+      const targetTotal = k.installmentsTotal;
+      const updates = []; let sum = 0;
+      for(const tr of document.querySelectorAll("#instEditBody tr")){
+        const instId = tr.getAttribute("data-id");
+        const due = tr.querySelector(".inst-due").value;
+        const amtCents = readMoneyInputToCents(tr.querySelector(".inst-amt").value);
+        if(!due) return toast("تحقق","تاريخ الاستحقاق مطلوب لكل قسط","error");
+        if(amtCents < 0) return toast("تحقق","مبلغ القسط لا يمكن أن يكون سالباً","error");
+        const i_obj = inst.find(i=>i.id===instId);
+        if(amtCents < i_obj.paid) return toast("تحقق",`القسط #${i_obj.seq}: المبلغ أقل من المدفوع`, "error");
+        sum += amtCents; updates.push({ i_obj, due, amtCents });
+      }
+      if(sum !== targetTotal) return toast("تحقق",`مجموع الأقساط يجب أن يساوي ${moneyFmt(targetTotal, k.currency)}`, "error");
+
+      const now = new Date().toISOString();
+      await dbx.transaction('rw', dbx.installments, dbx.audit, async () => {
+        for(const u of updates){
+          u.i_obj.dueDate = u.due; u.i_obj.amount = u.amtCents;
+          u.i_obj.status = getInstallmentStatus(u.i_obj.paid, u.i_obj.amount);
+          u.i_obj.updatedAt = now;
+          await dbx.installments.put(u.i_obj);
+        }
+        await logAuditAsync("تعديل أقساط", "installments", contractId, { contractNo: k.contractNo });
+      });
+
+      toast("تم","تم حفظ تعديلات الأقساط بنجاح","success");
+      await renderContractDetails(contractId);
+    };
+  }
+
+  async function renderMore(){
+    const db = await getDB();
+    appMain.innerHTML = `
+      <div class="section-title">المزيد</div>
+      <div class="grid-more">
+        <div class="more-card" id="moreQuickPay"><div class="more-ico" style="background:#111827;"><i class="fa-solid fa-money-bill-wave"></i></div><div class="more-title">تسجيل دفعة</div><div class="more-desc">سند قبض سريع وتوزيع</div></div>
+        <div class="more-card" id="moreExplorer"><div class="more-ico" style="background:#b42318;"><i class="fa-solid fa-calendar-xmark"></i></div><div class="more-title">جدول الأقساط</div><div class="more-desc">استعراض كل الأقساط</div></div>
+        <div class="more-card" id="moreReports"><div class="more-ico" style="background:#0b4f43;"><i class="fa-solid fa-chart-line"></i></div><div class="more-title">تقارير الأرباح</div><div class="more-desc">ربح ثابت ومُحقق</div></div>
+        <div class="more-card" id="moreExportExcel"><div class="more-ico" style="background:#1f7346;"><i class="fa-solid fa-file-excel"></i></div><div class="more-title">تصدير Excel</div><div class="more-desc">تحميل تقرير شامل بصيغة .xlsx</div></div>
+        <div class="more-card" id="moreBackup"><div class="more-ico" style="background:#0f766e;"><i class="fa-solid fa-shield-halved"></i></div><div class="more-title">الإعدادات والنسخ</div><div class="more-desc">JSON + حماية البيانات</div></div>
+      </div>
+      <div class="mt-3 stat-card p-3"><div class="fw-bold mb-2">سجل آخر العمليات</div><div class="mt-2" id="auditBox"></div></div>
+    `;
+
+    const box = document.getElementById("auditBox");
+    const items = db.audit.slice(0,15);
+    box.innerHTML = items.length ? items.map(a=>`<div class="border rounded-3 p-2 mb-2 bg-white"><div class="d-flex justify-content-between"><div class="fw-bold">${escapeHtml(a.action)}</div><div class="small mono muted">${escapeHtml(a.at).slice(0,19).replace("T"," ")}</div></div><div class="small muted">${escapeHtml(a.entityType)} • <span class="mono">${escapeHtml(a.entityId||"-")}</span></div></div>`).join("") : `<div class="text-center muted py-3">لا يوجد سجل</div>`;
+
+    document.getElementById("moreQuickPay").onclick = async ()=> await openQuickPaymentModal();
+    document.getElementById("moreBackup").onclick = ()=> openBackupModal();
+    document.getElementById("moreExplorer").onclick = async ()=> await renderInstallmentsExplorer();
+    document.getElementById("moreReports").onclick = async ()=> await renderProfitReport();
+    document.getElementById("moreExportExcel").onclick = async () => await exportContractsToExcel();
+  }
+
+  async function renderInstallmentsExplorer(){
+    const db = await getDB();
+    const today = todayISO();
+    appMain.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between mb-2"><div class="section-title mb-0">جدول الأقساط</div></div>
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-4"><select id="expCurrency" class="form-select"><option value="">كل العملات</option><option value="USD">USD</option><option value="SAR">SAR</option><option value="YER">YER</option></select></div>
+        <div class="col-12 col-md-4"><select id="expStatus" class="form-select"><option value="">كل الحالات</option><option value="unpaid">غير مسدد</option><option value="partial">جزئي</option><option value="paid">مسدد</option><option value="overdue">متأخر</option></select></div>
+        <div class="col-12 col-md-4"><input type="date" id="expDueBefore" class="form-control" value="${today}" /></div>
+      </div>
+      <div class="table-responsive"><table class="table table-sm table-bordered bg-white"><thead class="table-light"><tr><th>العميل</th><th>العقد</th><th>#</th><th>الاستحقاق</th><th>العملة</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody id="expBody"></tbody></table></div>
+    `;
+
+    function draw(){
+      const cur = document.getElementById("expCurrency").value;
+      const st = document.getElementById("expStatus").value;
+      const dueBefore = document.getElementById("expDueBefore").value;
+      const rows = [];
+      for(const i of db.installments){
+        const k = db.contracts.find(c=>c.id===i.contractId);
+        if(!k || k.status==="archived") continue;
+        if(cur && k.currency!==cur) continue;
+        const overdue = (i.dueDate < today && i.status!=="paid");
+        if(st==="overdue" && !overdue) continue;
+        if(st && st!=="overdue" && i.status!==st) continue;
+        if(dueBefore && i.dueDate > dueBefore) continue;
+        const cust = db.customers.find(c=>c.id===k.customerId);
+        const rem = Math.max(0, i.amount - i.paid);
+        rows.push({ i, k, cust, rem, overdue });
+      }
+      rows.sort((a,b)=> a.i.dueDate.localeCompare(b.i.dueDate) || a.i.seq-b.i.seq);
+      const body = document.getElementById("expBody");
+      body.innerHTML = rows.length ? rows.map(r=>`<tr style="cursor:pointer;" data-contract="${r.k.id}"><td>${escapeHtml(r.cust ? r.cust.name : "-")}</td><td class="mono">${escapeHtml(r.k.contractNo)}</td><td class="mono">${r.i.seq}</td><td class="mono">${escapeHtml(r.i.dueDate)}</td><td class="mono">${escapeHtml(r.k.currency)}</td><td class="mono">${moneyFmt(r.i.amount, r.k.currency)}</td><td class="mono">${moneyFmt(r.i.paid, r.k.currency)}</td><td class="mono fw-bold">${moneyFmt(r.rem, r.k.currency)}</td><td>${r.overdue ? `<span class="chip danger">متأخر</span>` : `<span class="chip ${r.i.status==="paid"?"success":(r.i.status==="partial"?"warn":"gray")}">${r.i.status}</span>`}</td></tr>`).join("") : `<tr><td colspan="9" class="text-center muted">لا يوجد بيانات</td></tr>`;
+      body.querySelectorAll("tr").forEach(tr=>{ tr.onclick = async ()=> await navigate("contractDetails", { contractId: tr.getAttribute("data-contract") }); });
+    }
+    document.getElementById("expCurrency").onchange = draw;
+    document.getElementById("expStatus").onchange = draw;
+    document.getElementById("expDueBefore").onchange = draw;
+    draw();
+  }
+
+  async function renderProfitReport(){
+    const db = await getDB();
+    const items = db.contracts.filter(c=>c.status!=="archived");
+    const byCurrency = {};
+    for(const k of items){
+      const inst = db.installments.filter(i=>i.contractId===k.id);
+      const paid = inst.reduce((s,i)=> s + i.paid, 0);
+      const profitRecognized = k.installmentsTotal>0 ? Math.round(k.profit * (paid / k.installmentsTotal)) : 0;
+      const profitRemain = k.profit - profitRecognized;
+      if(!byCurrency[k.currency]) byCurrency[k.currency] = { profitTotal:0, profitRecognized:0, profitRemain:0, count:0 };
+      byCurrency[k.currency].profitTotal += k.profit; byCurrency[k.currency].profitRecognized += profitRecognized;
+      byCurrency[k.currency].profitRemain += profitRemain; byCurrency[k.currency].count += 1;
+    }
+    const curRows = Object.keys(byCurrency).length ? Object.entries(byCurrency).map(([cur,x])=>`<tr><td class="mono">${cur}</td><td class="mono">${x.count}</td><td class="mono">${moneyFmt(x.profitTotal,cur)}</td><td class="mono">${moneyFmt(x.profitRecognized,cur)}</td><td class="mono fw-bold">${moneyFmt(x.profitRemain,cur)}</td></tr>`).join("") : `<tr><td colspan="5" class="text-center muted">لا يوجد عقود</td></tr>`;
+
+    appMain.innerHTML = `
+      <div class="section-title mb-2">تقرير الأرباح</div>
+      <div class="stat-card p-3"><div class="table-responsive"><table class="table table-sm table-bordered bg-white mb-0"><thead class="table-light"><tr><th>العملة</th><th>عقود</th><th>إجمالي الربح</th><th>مُحقق</th><th>غير مُحقق</th></tr></thead><tbody>${curRows}</tbody></table></div></div>
+    `;
+  }
+
+  const modalCustomer = new bootstrap.Modal(document.getElementById("modalCustomer"));
+  
+  document.getElementById("customerForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const id = (fd.get("id")||"").toString().trim();
+    const name = (fd.get("name")||"").toString().trim();
+    const phone = (fd.get("phone")||"").toString().trim();
+    if(!name || !phone) return toast("تحقق","الاسم والجوال مطلوبان","error");
+
+    const now = new Date().toISOString();
+    if(id){
+      const c = await dbx.customers.get(id);
+      if(!c) return toast("خطأ","العميل غير موجود","error");
+      c.name=name; c.phone=phone; c.address=fd.get("address"); c.notes=fd.get("notes"); c.status=fd.get("status"); c.updatedAt=now;
+      await dbx.transaction('rw', dbx.customers, dbx.audit, async () => {
+        await dbx.customers.put(c);
+        await logAuditAsync("تعديل عميل", "customer", id, {name,phone});
+      });
+      toast("تم","تم تحديث العميل","success");
+    }else{
+      const newC = { id: uid("c_"), name, phone, address:fd.get("address"), notes:fd.get("notes"), status:fd.get("status"), archivedAt:null, createdAt:now, updatedAt:now };
+      await dbx.transaction('rw', dbx.customers, dbx.audit, async () => {
+        await dbx.customers.add(newC);
+        await logAuditAsync("إضافة عميل", "customer", newC.id, {name,phone});
+      });
+      toast("تم","تم إضافة العميل","success");
+    }
+    modalCustomer.hide();
+    const active = document.querySelector(".bottom-nav .nav-link.active")?.getAttribute("data-page");
+    if(active==="customers") await renderCustomers(); else await renderDashboard();
+  });
+
+  async function openCustomerModal(customerId){
+    const form = document.getElementById("customerForm"); form.reset();
+    if(customerId){
+      const c = await dbx.customers.get(customerId);
+      form.querySelector('[name="id"]').value = c.id; form.querySelector('[name="name"]').value = c.name;
+      form.querySelector('[name="phone"]').value = c.phone; form.querySelector('[name="address"]').value = c.address;
+      form.querySelector('[name="notes"]').value = c.notes; form.querySelector('[name="status"]').value = c.status;
+    }else{
+      form.querySelector('[name="id"]').value = ""; form.querySelector('[name="status"]').value = "active";
+    }
+    modalCustomer.show();
+  }
+
+  async function toggleArchiveCustomer(customerId){
+    const c = await dbx.customers.get(customerId);
+    const arch = !c.archivedAt;
+    c.archivedAt = arch ? new Date().toISOString() : null;
+    await dbx.transaction('rw', dbx.customers, dbx.audit, async () => {
+      await dbx.customers.put(c);
+      await logAuditAsync(arch ? "أرشفة عميل" : "إلغاء أرشفة عميل", "customer", customerId, null);
+    });
+    toast("تم", arch ? "تم أرشفة العميل" : "تم إلغاء الأرشفة", "success");
+    await renderCustomers();
+  }
+
+  const modalContract = new bootstrap.Modal(document.getElementById("modalContract"));
+  document.getElementById("btnPreviewSchedule").onclick = ()=> previewSchedule();
+
+  document.getElementById("contractForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const id = (fd.get("id")||"").toString().trim();
+    const customerId = fd.get("customerId"); const contractNo = fd.get("contractNo");
+    const contractDate = fd.get("contractDate"); const currency = fd.get("currency");
+    const total = toCents(fd.get("total")); const down = toCents(fd.get("down"));
+    const profit = toCents(fd.get("profit")); const count = parseInt(fd.get("count"),10);
+    const firstDue = fd.get("firstDue");
+    
+    if(!customerId || !contractNo || !(total>0) || down>total || !(count>=1)) return toast("تحقق","تأكد من إدخال بيانات صحيحة","error");
+
+    const allContracts = await dbx.contracts.toArray();
+    if(allContracts.find(c=> c.contractNo===contractNo && c.id!==id)) return toast("تحقق","رقم العقد مستخدم مسبقاً","error");
+
+    const now = new Date().toISOString();
+    const totals = contractTotals({ total, down, profit });
+    const schedule = generateSchedule(totals.installmentsTotal, count, firstDue);
+
+    await dbx.transaction('rw', dbx.contracts, dbx.installments, dbx.audit, async () => {
+      if(id){
+        const insts = await dbx.installments.where({contractId: id}).toArray();
+        if(insts.some(i=>i.paid>0)) throw new Error("لا يمكن تعديل عقد به دفعات");
+        const k = await dbx.contracts.get(id);
+        k.customerId=customerId; k.contractNo=contractNo; k.contractDate=contractDate; k.currency=currency; k.total=total; k.down=down; k.profit=profit; k.financed=totals.financed; k.installmentsTotal=totals.installmentsTotal; k.count=count; k.firstDue=firstDue; k.updatedAt=now;
+        await dbx.contracts.put(k);
+        const oldInstKeys = insts.map(i=>i.id);
+        await dbx.installments.bulkDelete(oldInstKeys);
+        const newInsts = schedule.map(r=>({ id: uid("i_"), contractId:id, seq:r.seq, dueDate:r.dueDate, amount:r.amount, paid:0, status:"unpaid", createdAt:now, updatedAt:now }));
+        await dbx.installments.bulkAdd(newInsts);
+        await logAuditAsync("تعديل عقد", "contract", id, {contractNo});
+      }else{
+        const newId = uid("k_");
+        const k = { id:newId, customerId, contractNo, contractDate, currency, total, down, profit, financed:totals.financed, installmentsTotal:totals.installmentsTotal, count, firstDue, status:"active", archivedAt:null, createdAt:now, updatedAt:now };
+        await dbx.contracts.add(k);
+        const newInsts = schedule.map(r=>({ id: uid("i_"), contractId:newId, seq:r.seq, dueDate:r.dueDate, amount:r.amount, paid:0, status:"unpaid", createdAt:now, updatedAt:now }));
+        await dbx.installments.bulkAdd(newInsts);
+        await logAuditAsync("إنشاء عقد", "contract", newId, {contractNo});
+      }
+    }).then(async () => {
+      modalContract.hide();
+      toast("تم","تم الحفظ بنجاح","success");
+      await renderContracts();
+    }).catch(err => toast("سياسة", err.message, "error"));
+  });
+
+  async function fillCustomersSelect(selectEl, selectedId){
+    const customers = await dbx.customers.filter(c=>!c.archivedAt).toArray();
+    selectEl.innerHTML = `<option value="">— اختر —</option>` + customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+    if(selectedId) selectEl.value = selectedId;
+  }
+
+  async function openContractModal(contractId, preselectCustomerId){
+    const form = document.getElementById("contractForm"); form.reset();
+    form.querySelector('[name="contractDate"]').value = todayISO(); form.querySelector('[name="firstDue"]').value = todayISO();
+    await fillCustomersSelect(document.getElementById("contractCustomerSelect"), preselectCustomerId);
+    
+    if(contractId){
+      const k = await dbx.contracts.get(contractId);
+      form.querySelector('[name="id"]').value = k.id; form.querySelector('[name="customerId"]').value = k.customerId; form.querySelector('[name="contractNo"]').value = k.contractNo; form.querySelector('[name="contractDate"]').value = k.contractDate; form.querySelector('[name="currency"]').value = k.currency; form.querySelector('[name="total"]').value = fromCents(k.total); form.querySelector('[name="down"]').value = fromCents(k.down); form.querySelector('[name="profit"]').value = fromCents(k.profit); form.querySelector('[name="count"]').value = k.count; form.querySelector('[name="firstDue"]').value = k.firstDue;
+      previewSchedule();
+    }else{ form.querySelector('[name="id"]').value = ""; form.querySelector('[name="down"]').value = 0; form.querySelector('[name="profit"]').value = 0; document.getElementById("schedulePreviewBody").innerHTML = `<tr><td colspan="3" class="text-center muted">اضغط تحديث المعاينة</td></tr>`; }
+    modalContract.show();
+  }
+
+  function previewSchedule(){
+    const form = document.getElementById("contractForm");
+    const total = toCents(form.querySelector('[name="total"]').value); const down = toCents(form.querySelector('[name="down"]').value); const profit = toCents(form.querySelector('[name="profit"]').value); const count = parseInt(form.querySelector('[name="count"]').value || "0", 10); const firstDue = form.querySelector('[name="firstDue"]').value;
+    if(!(total>0) || !(count>=1) || !firstDue || down>total) return;
+    const financed = Math.max(0, total - down); const installmentsTotal = financed + Math.max(0, profit);
+    const rows = generateSchedule(installmentsTotal, count, firstDue);
+    document.getElementById("schedulePreviewBody").innerHTML = rows.map(r=>`<tr><td class="mono">${r.seq}</td><td class="mono">${escapeHtml(r.dueDate)}</td><td class="mono fw-bold">${moneyFmt(r.amount)}</td></tr>`).join("");
+  }
+
+  const modalQuickPayment = new bootstrap.Modal(document.getElementById("modalQuickPayment"));
+  let currentAllocState = { rows: [], allocMap: {}, currency: "USD", receiptTotal: 0 };
+
+  document.getElementById("quickPaymentForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const customerId = fd.get("customerId"); const contractId = fd.get("contractId") || null;
+    const amount = toCents(fd.get("amount")); const date = fd.get("date"); const note = fd.get("note");
+
+    const allocEntries = Object.entries(currentAllocState.allocMap).map(([instId, cents])=>({ instId, cents: Number(cents)||0 })).filter(x=>x.cents>0);
+    const allocatedSum = allocEntries.reduce((s,x)=>s+x.cents,0);
+    if(allocatedSum > amount) return toast("تحقق","مجموع التوزيع أكبر من مبلغ السند","error");
+
+    const now = new Date().toISOString();
+    
+    await dbx.transaction('rw', dbx.settings, dbx.receipts, dbx.installments, dbx.allocations, dbx.audit, async () => {
+      const setts = await dbx.settings.get(1);
+      setts.receiptSeq = (setts.receiptSeq||1000) + 1;
+      await dbx.settings.put(setts);
+      
+      const receiptId = uid("r_");
+      await dbx.receipts.add({ id: receiptId, receiptNo: "R-"+setts.receiptSeq, customerId, contractId, currency: currentAllocState.currency, amount, date, note, status: "posted", createdAt: now });
+
+      for(const x of allocEntries){
+        const inst = await dbx.installments.get(x.instId);
+        inst.paid += x.cents; inst.status = getInstallmentStatus(inst.paid, inst.amount); inst.updatedAt = now;
+        await dbx.installments.put(inst);
+        await dbx.allocations.add({ id: uid("a_"), receiptId, installmentId: x.instId, amount: x.cents, createdAt: now });
+      }
+      
+      const unallocated = amount - allocatedSum;
+      if(unallocated > 0) await dbx.allocations.add({ id: uid("a_"), receiptId, installmentId: null, amount: unallocated, createdAt: now });
+
+      await logAuditAsync("سند قبض","receipt",receiptId,{receiptNo: "R-"+setts.receiptSeq, amount});
+    });
+
+    modalQuickPayment.hide(); toast("تم","تم إنشاء السند","success");
+    if(contractId) await navigate("contractDetails", { contractId }); else await navigate("customerDetails", { customerId });
+  });
+
+  document.getElementById("btnAutoAllocate").onclick = ()=> {
+    const amt = toCents(document.getElementById("quickPaymentForm").querySelector('[name="amount"]').value);
+    const res = autoAllocate(amt, currentAllocState.rows);
+    currentAllocState.allocMap = {};
+    document.querySelectorAll("#allocTableBody tr").forEach(tr=>{
+      const instId = tr.getAttribute("data-inst"); const inp = tr.querySelector("input");
+      const found = res.allocations.find(a=>a.installmentId===instId); const cents = found ? found.amount : 0;
+      currentAllocState.allocMap[instId] = cents; inp.value = cents ? fromCents(cents) : "";
+    });
+    syncAllocSummary();
+  };
+
+  document.getElementById("btnClearAlloc").onclick = ()=> { currentAllocState.allocMap = {}; document.querySelectorAll("#allocTableBody .alloc-input").forEach(inp=> inp.value=""); syncAllocSummary(); };
+  document.getElementById("payCustomerSelect").addEventListener("change", async ()=>{ await refillContractsForPayment(document.getElementById("payCustomerSelect").value); await rebuildAllocRows(); });
+  document.getElementById("payContractSelect").addEventListener("change", async ()=>{ await rebuildAllocRows(); });
+  document.getElementById("quickPaymentForm").querySelector('[name="amount"]').addEventListener("input", ()=>{ currentAllocState.receiptTotal = toCents(document.getElementById("quickPaymentForm").querySelector('[name="amount"]').value); syncAllocSummary(); });
+
+  async function openQuickPaymentModal(preCustomerId, preContractId){
+    const form = document.getElementById("quickPaymentForm"); form.reset(); form.querySelector('[name="date"]').value = todayISO();
+    await fillCustomersSelect(document.getElementById("payCustomerSelect"), preCustomerId);
+    await refillContractsForPayment(document.getElementById("payCustomerSelect").value, preContractId);
+    currentAllocState = { rows: [], allocMap:{}, currency: "USD", receiptTotal: 0 };
+    await rebuildAllocRows();
+    modalQuickPayment.show();
+  }
+
+  async function refillContractsForPayment(customerId, preselectContractId){
+    const sel = document.getElementById("payContractSelect"); sel.innerHTML = `<option value="">— سند عام للعميل —</option>`;
+    if(!customerId) return;
+    const db = await getDB();
+    const contracts = db.contracts.filter(c=>c.customerId===customerId && c.status==="active" && !c.archivedAt);
+    for(const k of contracts){
+      const rem = db.installments.filter(i=>i.contractId===k.id).reduce((s,i)=> s + Math.max(0, i.amount - i.paid), 0);
+      sel.innerHTML += `<option value="${k.id}">${escapeHtml(k.contractNo)} • متبقٍ ${moneyFmt(rem,k.currency)}</option>`;
+    }
+    if(preselectContractId) sel.value = preselectContractId;
+  }
+
+  async function rebuildAllocRows(){
+    const db = await getDB();
+    const customerId = document.getElementById("payCustomerSelect").value; const contractId = document.getElementById("payContractSelect").value;
+    const body = document.getElementById("allocTableBody"); currentAllocState.allocMap = {}; currentAllocState.rows = [];
+    if(!customerId){ body.innerHTML = `<tr><td colspan="4" class="text-center muted">اختر عميلاً أولاً</td></tr>`; syncAllocSummary(); return; }
+
+    let contracts = contractId ? [db.contracts.find(c=>c.id===contractId)] : db.contracts.filter(c=>c.customerId===customerId && c.status==="active");
+    let rows = [];
+    for(const k of contracts){
+      currentAllocState.currency = k.currency;
+      const inst = db.installments.filter(i=>i.contractId===k.id).map(i=>({ installmentId: i.id, dueDate: i.dueDate, seq: i.seq, contractId: k.id, remaining: Math.max(0, i.amount - i.paid), currency: k.currency })).filter(x=>x.remaining>0);
+      rows.push(...inst);
+    }
+    rows.sort((a,b)=> a.dueDate.localeCompare(b.dueDate) || a.seq-b.seq);
+    currentAllocState.rows = rows;
+
+    body.innerHTML = rows.length ? rows.map(r=>`<tr data-inst="${r.installmentId}"><td class="mono">${escapeHtml(db.contracts.find(c=>c.id===r.contractId)?.contractNo || "")} • #${r.seq}</td><td class="mono">${escapeHtml(r.dueDate)}</td><td class="mono">${moneyFmt(r.remaining, r.currency)}</td><td><input class="form-control form-control-sm alloc-input" type="number" min="0" step="0.01" data-max="${r.remaining}" /></td></tr>`).join("") : `<tr><td colspan="4" class="text-center muted">لا توجد أقساط متبقية</td></tr>`;
+    
+    body.querySelectorAll(".alloc-input").forEach(inp=>{
+      inp.addEventListener("input", ()=>{
+        const instId = inp.closest("tr").getAttribute("data-inst"); const max = Number(inp.getAttribute("data-max")||0); const cents = toCents(inp.value);
+        if(cents > max){ inp.value = fromCents(max); currentAllocState.allocMap[instId] = max; }else{ currentAllocState.allocMap[instId] = cents; }
+        syncAllocSummary();
+      });
+    });
+    syncAllocSummary();
+  }
+
+  function syncAllocSummary(){
+    const total = toCents(document.getElementById("quickPaymentForm")?.querySelector('[name="amount"]')?.value);
+    const allocated = Object.values(currentAllocState.allocMap).reduce((s,x)=> s + (Number(x)||0), 0);
+    const unallocated = Math.max(0, (total||0) - allocated);
+    const cur = currentAllocState.currency || "USD";
+    document.getElementById("receiptTotalChip").textContent = moneyFmt(total||0, cur); document.getElementById("allocatedChip").textContent = moneyFmt(allocated, cur); document.getElementById("unallocatedChip").textContent = moneyFmt(unallocated, cur); document.getElementById("unallocatedCell").textContent = moneyFmt(unallocated, cur);
+  }
+
+  async function exportContractsToExcel() {
+    const db = await getDB();
+    const contracts = db.contracts.filter(c => c.status !== "archived");
+    if (contracts.length === 0) return toast("تنبيه", "لا توجد عقود نشطة لتصديرها", "warn");
+
+    const data = contracts.map(k => {
+      const cust = db.customers.find(c => c.id === k.customerId);
+      const inst = db.installments.filter(i => i.contractId === k.id);
+      const paidTotal = inst.reduce((s, i) => s + i.paid, 0);
+      const remainingTotal = Math.max(0, k.installmentsTotal - paidTotal);
+
+      return {
+        "رقم العقد": k.contractNo, "تاريخ العقد": k.contractDate, "اسم العميل": cust ? cust.name : "غير معروف",
+        "رقم الجوال": cust ? cust.phone : "-", "العملة": k.currency, "إجمالي العقد": fromCents(k.total),
+        "الدفعة المقدمة": fromCents(k.down), "المبلغ الممول": fromCents(k.financed), "الربح الثابت": fromCents(k.profit),
+        "مجموع الأقساط": fromCents(k.installmentsTotal), "المدفوع": fromCents(paidTotal), "المتبقي": fromCents(remainingTotal),
+        "الحالة": k.status === "active" ? "نشط" : (k.status === "closed" ? "مغلق" : k.status)
+      };
+    });
+
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      worksheet['!dir'] = 'rtl';
+      worksheet['!cols'] = [ { wch: 15 }, { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 10 } ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "تقرير العقود");
+      XLSX.writeFile(workbook, `تقرير_العقود_${todayISO()}.xlsx`);
+      
+      toast("تم", "تم تصدير ملف Excel بنجاح", "success");
+      await logAuditAsync("تصدير تقرير Excel", "system", "export", { records: data.length });
+    } catch (error) {
+      console.error(error); toast("خطأ", "تأكد من اتصالك بالإنترنت في المرة الأولى لتحميل مكتبة SheetJS", "error");
+    }
+  }
+
+  const modalBackup = new bootstrap.Modal(document.getElementById("modalBackup"));
+  function openBackupModal(){ modalBackup.show(); }
+
+  document.getElementById("btnExportJson").onclick = async ()=>{
+    const db = await getDB();
+    const raw = JSON.stringify({ meta: { schemaVersion: 2, exportedAt: new Date().toISOString(), appVersion: APP_VERSION }, data: db });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+    a.download = `backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+    toast("تم","تم تصدير النسخة الاحتياطية","success");
+  };
+
+  document.getElementById("importFile").onchange = (e)=>{
+    const f = e.target.files && e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = async ()=>{
+      try{
+        const obj = JSON.parse(fr.result);
+        if(!obj?.data) throw new Error();
+        if(!confirm("سيتم استبدال بيانات التطبيق بالكامل بهذه النسخة. هل تريد المتابعة؟")) return;
+        
+        await dbx.transaction('rw', dbx.settings, dbx.customers, dbx.contracts, dbx.installments, dbx.receipts, dbx.allocations, dbx.audit, async () => {
+          await dbx.settings.put({ id: 1, ...obj.data.settings });
+          await dbx.customers.clear(); if(obj.data.customers) await dbx.customers.bulkPut(obj.data.customers);
+          await dbx.contracts.clear(); if(obj.data.contracts) await dbx.contracts.bulkPut(obj.data.contracts);
+          await dbx.installments.clear(); if(obj.data.installments) await dbx.installments.bulkPut(obj.data.installments);
+          await dbx.receipts.clear(); if(obj.data.receipts) await dbx.receipts.bulkPut(obj.data.receipts);
+          await dbx.allocations.clear(); if(obj.data.allocations) await dbx.allocations.bulkPut(obj.data.allocations);
+          await dbx.audit.clear(); if(obj.data.audit) await dbx.audit.bulkPut(obj.data.audit);
+        });
+        toast("تم","تمت الاستعادة بنجاح. يتم التحديث...","success");
+        setTimeout(()=> location.reload(), 900);
+      }catch(err){ toast("خطأ","صيغة الملف غير صحيحة","error"); }
+    };
+    fr.readAsText(f);
+  };
+
+  document.getElementById("btnFactoryReset").onclick = async ()=>{
+    if(!confirm("تحذير: سيتم حذف كل البيانات. هل أنت متأكد؟")) return;
+    await dbx.delete(); toast("تم","تم تصفير البيانات. يتم التحديث...","success");
+    setTimeout(()=> location.reload(), 800);
+  };
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    await runMigration();
+    document.getElementById("appLoader").style.display = "none";
+    await navigate("dashboard");
+  });
+  </script>
+</body>
+</html>
